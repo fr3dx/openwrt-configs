@@ -1,0 +1,46 @@
+#!/bin/sh
+
+set -e
+
+INTERFACE_NAME="wg_mullvad"
+INTERFACE_PRIVATE_KEY="{Y O U R P R I V A T E K E Y}"
+PEER_DESCRIPTION="{Y O U R P E E R D E S C R I P T I O N}"
+PEER_NAME="wg_mullvad_peer_${PEER_DESCRIPTION}"
+PEER_PUBLIC_KEY="{Y O U R P U B L I C K E Y}"
+ENDPOINT_HOST="{E N D P O I N T H O S T I P}"
+
+### Interface ###
+uci -q delete network.$INTERFACE_NAME
+uci set network.$INTERFACE_NAME=interface
+uci set network.$INTERFACE_NAME.proto='wireguard'
+uci set network.$INTERFACE_NAME.private_key="$INTERFACE_PRIVATE_KEY"
+
+# Addresses
+uci add_list network.$INTERFACE_NAME.addresses='10.70.165.129/32'
+uci add_list network.$INTERFACE_NAME.addresses='fc00:bbbb:bbbb:bb01::7:a580/128'
+
+### Peer ###
+for s in $(uci show network | grep "=wireguard_wg_mullvad" | cut -d. -f2 | cut -d= -f1); do
+    case "$s" in
+        wg_mullvad_peer_*)
+            uci -q delete network.$s
+        ;;
+    esac
+done
+uci set network.$PEER_NAME=wireguard_wg_mullvad
+uci set network.$PEER_NAME.description="$PEER_DESCRIPTION"
+uci set network.$PEER_NAME.public_key="$PEER_PUBLIC_KEY"
+uci set network.$PEER_NAME.endpoint_host="$ENDPOINT_HOST"
+uci set network.$PEER_NAME.endpoint_port='51820'
+
+# ALlowed IP-s
+uci add_list network.$PEER_NAME.allowed_ips='0.0.0.0/0'
+uci add_list network.$PEER_NAME.allowed_ips='::0/0'
+uci set network.$PEER_NAME.route_allowed_ips='1'
+
+# Bind peer to interface
+uci -q delete network.$INTERFACE_NAME.peers
+uci add_list network.$INTERFACE_NAME.peers="$PEER_NAME"
+
+uci commit network
+/etc/init.d/network reload
