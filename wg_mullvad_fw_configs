@@ -1,0 +1,23 @@
+#!/bin/sh
+
+ZONE="vpn_out"
+FWD="lan_to_vpn"
+
+### Add zone ###
+uci -q delete firewall.$ZONE
+uci set firewall.$ZONE=zone
+uci set firewall.$ZONE.name='vpn_out'
+uci set firewall.$ZONE.network='wg_mullvad'
+uci set firewall.$ZONE.input='REJECT'
+uci set firewall.$ZONE.output='ACCEPT'
+uci set firewall.$ZONE.forward='REJECT'
+uci set firewall.$ZONE.masq='1'
+uci set firewall.$ZONE.mtu_fix='1'
+
+### Forward ###
+uci -q delete firewall.$FWD
+uci set firewall.$FWD=forwarding
+uci set firewall.$FWD.src='lan'
+uci set firewall.$FWD.dest='vpn_out'
+uci commit firewall
+/etc/init.d/firewall reload
